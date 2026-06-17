@@ -46,29 +46,28 @@ Abre `http://<host>:8080` y verás el dashboard.
 
 ## Desplegar en el iHost (eWeLink CUBE · ARM v7)
 
-El iHost de Sonoff corre **`linux/arm/v7`** e instala add-ons desde Docker Hub.
-El `Dockerfile` ya usa una base **Alpine** que publica arm32v7 (la imagen Debian
-por defecto de .NET **no** trae arm32) y cross-compila para no emular el SDK ARM.
+El iHost de Sonoff corre **`linux/arm/v7`**. El `Dockerfile` usa una base
+**Alpine** que publica arm32v7 (la imagen Debian por defecto de .NET **no** trae
+arm32) y cross-compila para no emular el SDK ARM.
 
-**1. Compilar y publicar a Docker Hub para ARM v7** (desde tu PC con Docker buildx):
+**1. La imagen ya está publicada en ghcr.io.** GitHub Actions la construye
+multi-arch (amd64 + arm64 + arm/v7) y la sube a:
 
-```bash
-docker buildx create --use   # solo la primera vez
-
-docker buildx build \
-  --platform linux/arm/v7 \
-  -t <usuario-dockerhub>/sentinel:latest \
-  --push .
+```
+ghcr.io/mrphipes/sentinel:latest
 ```
 
-> Multi-arch (para probar también en PC x86):
-> `--platform linux/amd64,linux/arm64,linux/arm/v7`
+No necesitas Docker local ni tokens: el workflow `release.yml` la republica con
+cada tag `vX.Y.Z`. Para que el iHost la baje sin credenciales, deja el *package*
+como **público** (GitHub → tu perfil → Packages → `sentinel` → Settings → Change
+visibility → Public).
 
 **2. Añadir e instalar en el CUBE** (`http://<ip-ihost>/#/docker`):
 
-1. *Add-on List* → **+ Add** → **Add Add-on** → busca `<usuario-dockerhub>/sentinel`
-   → **Add to list**.
-2. **Install** y, en el panel de configuración:
+1. *Add-on List* → **+ Add** → **Add Repository**: URL `ghcr.io` (sin auth si el
+   package es público; si lo dejas privado, usuario `MrPhipes` + un token con
+   `read:packages`).
+2. Busca/añade `ghcr.io/mrphipes/sentinel:latest` → **Install** y, en el panel:
    - **Network mode: `host`** ← imprescindible para que el Wake-on-LAN (broadcast
      L2) y el ping lleguen a tu LAN.
    - Sin `host`, mapea el puerto `8080:8080` y pon `WolBroadcastAddress` con el
