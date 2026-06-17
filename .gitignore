@@ -1,0 +1,21 @@
+# Compilados de .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Config local con datos reales (no publicar IPs/MACs de tu casa).
+# Versionamos appsettings.json con equipos de ejemplo; sobrescribe en local con:
+appsettings.Local.json
+appsettings.Production.json

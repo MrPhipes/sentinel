@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phipes Sentinel</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a212b;
+      --border: #2a3441;
+      --text: #e6edf3;
+      --muted: #8b98a8;
+      --green: #2ea043;
+      --red: #cf3b3b;
+      --accent: #3b82f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    h1 { font-size: 20px; margin: 0; font-weight: 600; }
+    h1 span { color: var(--accent); }
+    .meta { color: var(--muted); font-size: 13px; }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .name { font-weight: 600; font-size: 16px; }
+    .host { color: var(--muted); font-size: 13px; font-family: ui-monospace, monospace; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    .dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.off { background: var(--red); }
+    .state { display: flex; align-items: center; font-size: 13px; color: var(--muted); }
+    .ports { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+    .port {
+      font-size: 12px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-family: ui-monospace, monospace;
+    }
+    .port.open { color: var(--green); border-color: rgba(46,160,67,.5); }
+    .port.closed { color: var(--muted); }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    button {
+      background: var(--accent);
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.1); }
+    button:disabled { opacity: .5; cursor: default; }
+    .latency { color: var(--muted); font-size: 13px; }
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(120px);
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: 10px;
+      transition: transform .25s ease;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Phipes <span>Sentinel</span></h1>
+    <div class="meta" id="updated">Cargando…</div>
+  </header>
+
+  <main id="grid"></main>
+
+  <footer>
+    Phipes Sentinel — monitor + Wake-on-LAN ·
+    <a href="https://phipes.cl" target="_blank" rel="noopener">phipes.cl</a>
+  </footer>
+
+  <div id="toast"></div>
+
+  <script>
+    const grid = document.getElementById("grid");
+    const updated = document.getElementById("updated");
+    const toast = document.getElementById("toast");
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 3000);
+    }
+
+    function timeAgo(iso) {
+      const secs = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+      if (secs < 60) return `hace ${secs}s`;
+      return `hace ${Math.round(secs / 60)}m`;
+    }
+
+    function card(d) {
+      const ports = (d.ports || [])
+        .map(p => `<span class="port ${p.open ? "open" : "closed"}">${p.name}:${p.number}</span>`)
+        .join("");
+      const latency = d.online && d.latencyMs != null ? `${d.latencyMs} ms` : "";
+      return `
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="name">${d.name}</div>
+              <div class="host">${d.host}</div>
+            </div>
+            <div class="state">
+              <span class="dot ${d.online ? "on" : "off"}"></span>
+              ${d.online ? "En línea" : "Apagado"}
+            </div>
+          </div>
+          <div class="ports">${ports || '<span class="port closed">sin puertos configurados</span>'}</div>
+          <div class="row">
+            <span class="latency">${latency}</span>
+            <button data-id="${d.id}" ${d.online ? "disabled" : ""}>
+              ${d.online ? "Encendido" : "Encender"}
+            </button>
+          </div>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const res = await fetch("/api/devices");
+        const devices = await res.json();
+        grid.innerHTML = devices.map(card).join("");
+        updated.textContent = devices.length
+          ? `Actualizado ${devices.map(d => timeAgo(d.lastChecked))[0]}`
+          : "Sin equipos configurados";
+        for (const btn of grid.querySelectorAll("button[data-id]")) {
+          btn.addEventListener("click", () => wake(btn.dataset.id, btn));
+        }
+      } catch {
+        updated.textContent = "Error al consultar el servicio";
+      }
+    }
+
+    async function wake(id, btn) {
+      btn.disabled = true;
+      btn.textContent = "Enviando…";
+      try {
+        const res = await fetch(`/api/devices/${id}/wake`, { method: "POST" });
+        const data = await res.json();
+        showToast(data.message || "Paquete enviado");
+      } catch {
+        showToast("Error al enviar el Wake-on-LAN");
+      } finally {
+        setTimeout(load, 1500);
+      }
+    }
+
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>

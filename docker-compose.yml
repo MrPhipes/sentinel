@@ -1,0 +1,24 @@
+services:
+  sentinel:
+    build: .
+    image: phipes/sentinel:latest
+    container_name: sentinel
+    # Vuelve a levantar solo tras un corte de luz (el iHost arranca con la corriente).
+    restart: unless-stopped
+
+    # CLAVE: el paquete mágico Wake-on-LAN es un broadcast de capa 2. En una red
+    # bridge de Docker NO sale a la LAN. Con network_mode: host el contenedor
+    # comparte la red del iHost y el broadcast (y el ping) sí llegan a sus equipos.
+    network_mode: host
+
+    # Permite el ping ICMP (usa raw sockets) dentro del contenedor.
+    cap_add:
+      - NET_RAW
+
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - TZ=America/Santiago
+
+    # Monta la config para editar la lista de equipos sin reconstruir la imagen.
+    volumes:
+      - ./appsettings.json:/app/appsettings.json:ro

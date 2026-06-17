@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Phipes.Sentinel</RootNamespace>
+    <AssemblyName>Phipes.Sentinel</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>0.0.1</Version>
+    <Description>Centinela de red + Wake-on-LAN para Docker en el iHost (eWeLink CUBE).</Description>
+    <Authors>Phipes</Authors>
+  </PropertyGroup>
+
+</Project>

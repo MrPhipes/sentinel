@@ -1,0 +1,7 @@
+# Normaliza saltos de línea a LF en el repo (evita problemas al correr en Linux).
+* text=auto eol=lf
+
+# Archivos binarios: sin conversión.
+*.png binary
+*.jpg binary
+*.ico binary
