@@ -1,6 +1,6 @@
 # Phipes Sentinel
 
-Centinela liviano de red, en C# / .NET 9, pensado para correr en un contenedor
+Centinela liviano de red, en C# / .NET 10 (LTS), pensado para correr en un contenedor
 Docker dentro de un equipo siempre encendido (por ejemplo un **iHost** que arranca
 solo al volver la corriente).
 
@@ -20,7 +20,9 @@ casa.
 - **Dashboard web**: una tarjeta por equipo con estado, latencia, puertos y un
   botón **Encender**. Responsivo (sirve desde el celular) y con auto-refresh.
 - **API REST**: para integrar con Home Assistant, `curl`, scripts o un bot.
-- **Configuración por archivo**: editas `appsettings.json` y listo, sin recompilar.
+- **Edición en caliente**: agregás, editás y eliminás equipos **desde el propio
+  dashboard** (o por API). Se persiste en un archivo JSON dentro de un volumen, sin
+  reiniciar el contenedor ni tocar `appsettings.json`.
 
 ---
 
@@ -72,7 +74,8 @@ visibility → Public).
      L2) y el ping lleguen a tu LAN.
    - Sin `host`, mapea el puerto `8080:8080` y pon `WolBroadcastAddress` con el
      broadcast dirigido de tu subred (ej. `192.168.1.255`).
-   - Variables/volúmenes opcionales para sobrescribir `appsettings.json`.
+   - **Volumen**: mapeá una ruta persistente del iHost a **`/app/data`** para que
+     la lista de equipos que edités desde el dashboard sobreviva reinicios.
 
 > El ping ICMP necesita la capability `NET_RAW`. Si el panel del CUBE no la expone,
 > el ping puede fallar, pero el **chequeo TCP** igual reporta el estado de cada
@@ -133,7 +136,9 @@ algún motivo no puedes usar host networking, configura `WolBroadcastAddress` co
 | `PollIntervalSeconds` | Cada cuántos segundos se sondea (mínimo 5). |
 | `PingTimeoutMs` / `TcpTimeoutMs` | Timeouts de ping y de conexión TCP. |
 | `WolBroadcastAddress` / `WolPort` | Destino del paquete mágico. |
-| `Devices[].Id` | Identificador usado en la API. |
+| `DataPath` | Archivo JSON con la lista editable (default `data/devices.json`). |
+| `Devices[]` | Semilla inicial; tras el primer arranque manda `DataPath`. |
+| `Devices[].Id` | Identificador usado en la API (autogenerado al agregar por UI). |
 | `Devices[].Host` | IP o hostname para ping / TCP. |
 | `Devices[].MacAddress` | MAC destino del WOL (acepta `:`, `-` o `.`). |
 | `Devices[].Ports` | Puertos TCP a chequear, con etiqueta. |
@@ -148,9 +153,13 @@ algún motivo no puedes usar host networking, configura `WolBroadcastAddress` co
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/api/devices` | Estado de todos los equipos. |
+| `GET` | `/api/devices` | Estado en vivo de todos los equipos. |
 | `GET` | `/api/devices/{id}` | Estado de un equipo. |
 | `POST` | `/api/devices/{id}/wake` | Envía Wake-on-LAN al equipo. |
+| `GET` | `/api/config/devices` | Lista la configuración editable. |
+| `POST` | `/api/config/devices` | Agrega un equipo. |
+| `PUT` | `/api/config/devices/{id}` | Edita un equipo. |
+| `DELETE` | `/api/config/devices/{id}` | Elimina un equipo. |
 | `GET` | `/api/health` | Healthcheck del servicio. |
 
 ```bash
@@ -167,7 +176,7 @@ dotnet run
 # Dashboard en http://localhost:8080  (o el puerto de ASPNETCORE_URLS)
 ```
 
-Requiere el **SDK de .NET 9**. En Windows el ping ICMP funciona de fábrica; en
+Requiere el **SDK de .NET 10**. En Windows el ping ICMP funciona de fábrica; en
 Linux dentro de Docker se habilita con la capability `NET_RAW` (ya incluida en el
 compose).
 
@@ -182,6 +191,7 @@ Models/                     SentinelOptions, DeviceConfig, DeviceStatus
 Services/
   MonitorService.cs         Sondeo periódico (ping + TCP) en segundo plano
   WakeOnLanService.cs       Construcción y envío del paquete mágico
+  DeviceRepository.cs       Lista editable de equipos, persistida en JSON
   DeviceStatusStore.cs      Estado en memoria, seguro para concurrencia
 wwwroot/index.html          Dashboard web
 Dockerfile / docker-compose.yml

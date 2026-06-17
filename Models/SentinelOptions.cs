@@ -20,7 +20,13 @@ public sealed class SentinelOptions
     // Puerto UDP del paquete mágico (convencionalmente 9, a veces 7).
     public int WolPort { get; set; } = 9;
 
-    // Lista de equipos a monitorear.
+    // Archivo JSON donde se persiste la lista editable de equipos. Relativo al
+    // directorio de la app salvo que sea una ruta absoluta. En Docker conviene
+    // montarlo en un volumen (ej. /app/data) para que sobreviva reinicios.
+    public string DataPath { get; set; } = "data/devices.json";
+
+    // Lista inicial de equipos (semilla). Una vez creado el archivo de DataPath,
+    // esa pasa a ser la fuente de verdad y esta lista solo siembra el primer arranque.
     public List<DeviceConfig> Devices { get; set; } = new();
 }
 

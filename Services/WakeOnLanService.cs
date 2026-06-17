@@ -11,7 +11,8 @@ public sealed class WakeOnLanService
     // network_mode: host (o si se usa el broadcast dirigido de la subred).
     public async Task SendMagicPacketAsync(string macAddress, string broadcastAddress, int port)
     {
-        var mac = ParseMac(macAddress);
+        if (!TryParseMac(macAddress, out var mac))
+            throw new FormatException($"MAC inválida: '{macAddress}'");
 
         // El paquete mágico son 6 bytes 0xFF seguidos de 16 repeticiones de la MAC.
         var packet = new byte[6 + 16 * 6];
@@ -29,8 +30,13 @@ public sealed class WakeOnLanService
     }
 
     // Normaliza "AA:BB:CC:DD:EE:FF", "AA-BB-...", "aabb.ccdd.eeff" a 6 bytes.
-    private static byte[] ParseMac(string macAddress)
+    // Devuelve false si la MAC no es válida (sirve para validar en la API).
+    public static bool TryParseMac(string macAddress, out byte[] bytes)
     {
+        bytes = Array.Empty<byte>();
+        if (string.IsNullOrWhiteSpace(macAddress))
+            return false;
+
         var clean = macAddress
             .Replace(":", "")
             .Replace("-", "")
@@ -38,12 +44,16 @@ public sealed class WakeOnLanService
             .Trim();
 
         if (clean.Length != 12)
-            throw new FormatException($"MAC inválida: '{macAddress}'");
+            return false;
 
-        var bytes = new byte[6];
+        var parsed = new byte[6];
         for (var i = 0; i < 6; i++)
-            bytes[i] = Convert.ToByte(clean.Substring(i * 2, 2), 16);
+        {
+            if (!byte.TryParse(clean.AsSpan(i * 2, 2), System.Globalization.NumberStyles.HexNumber, null, out parsed[i]))
+                return false;
+        }
 
-        return bytes;
+        bytes = parsed;
+        return true;
     }
 }

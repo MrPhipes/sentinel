@@ -19,6 +19,11 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - TZ=America/Santiago
 
-    # Monta la config para editar la lista de equipos sin reconstruir la imagen.
     volumes:
+      # appsettings.json: solo semilla inicial + timeouts/intervalo (lectura).
       - ./appsettings.json:/app/appsettings.json:ro
+      # data: lista editable de equipos persistida (sobrevive reinicios/cortes).
+      - sentinel-data:/app/data
+
+volumes:
+  sentinel-data:

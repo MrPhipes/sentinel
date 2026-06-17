@@ -19,3 +19,6 @@ Thumbs.db
 # Versionamos appsettings.json con equipos de ejemplo; sobrescribe en local con:
 appsettings.Local.json
 appsettings.Production.json
+
+# Datos en runtime (lista editable de equipos persistida).
+data/

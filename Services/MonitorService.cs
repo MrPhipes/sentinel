@@ -10,15 +10,18 @@ namespace Phipes.Sentinel.Services;
 public sealed class MonitorService : BackgroundService
 {
     private readonly SentinelOptions _options;
+    private readonly DeviceRepository _repository;
     private readonly DeviceStatusStore _store;
     private readonly ILogger<MonitorService> _logger;
 
     public MonitorService(
         IOptions<SentinelOptions> options,
+        DeviceRepository repository,
         DeviceStatusStore store,
         ILogger<MonitorService> logger)
     {
         _options = options.Value;
+        _repository = repository;
         _store = store;
         _logger = logger;
     }
@@ -26,8 +29,8 @@ public sealed class MonitorService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "Centinela iniciado: {Count} equipo(s), sondeo cada {Seconds}s",
-            _options.Devices.Count, _options.PollIntervalSeconds);
+            "Centinela iniciado: sondeo cada {Seconds}s",
+            _options.PollIntervalSeconds);
 
         var interval = TimeSpan.FromSeconds(Math.Max(5, _options.PollIntervalSeconds));
         using var timer = new PeriodicTimer(interval);
@@ -53,10 +56,17 @@ public sealed class MonitorService : BackgroundService
 
     private async Task PollAllAsync(CancellationToken ct)
     {
-        var tasks = _options.Devices.Select(device => PollDeviceAsync(device, ct));
+        // Se relee la lista en cada ciclo, así los cambios hechos desde la UI/API
+        // (agregar, editar, borrar equipos) se aplican sin reiniciar.
+        var devices = _repository.GetAll();
+
+        var tasks = devices.Select(device => PollDeviceAsync(device, ct));
         var results = await Task.WhenAll(tasks);
         foreach (var status in results)
             _store.Update(status);
+
+        // Limpia estados de equipos que ya no existen.
+        _store.RetainOnly(devices.Select(d => d.Id));
     }
 
     private async Task<DeviceStatus> PollDeviceAsync(DeviceConfig device, CancellationToken ct)
